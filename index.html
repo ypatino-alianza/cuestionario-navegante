@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Navegante Socioemocional</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind Config -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Montserrat', 'sans-serif'],
+            },
+            colors: {
+              brand: {
+                bg: '#efecdd',      // Fondo
+                purple: '#5e4b87',  // Complementario (Textos principales)
+                green: '#8cae30',   // Botones
+                'green-dark': '#6d8a24', // Hover botones
+                'purple-light': '#7a64a3',
+                'purple-dark': '#453566',
+              }
+            }
+          }
+        }
+      }
+    </script>
+
+    <!-- Import Map: FIXED to strictly use React 18.2.0 to avoid version conflicts -->
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.292.0?deps=react@18.2.0",
+    "framer-motion": "https://esm.sh/framer-motion@10.16.4?deps=react@18.2.0,react-dom@18.2.0",
+    "html2canvas": "https://esm.sh/html2canvas@1.4.1",
+    "jspdf": "https://esm.sh/jspdf@2.5.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/"
+  }
+}
+</script>
+
+    <!-- Babel for JSX compilation in browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body class="bg-brand-bg text-slate-800 antialiased font-sans">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module" data-presets="typescript,react">
+      import React, { useState, useRef } from 'react';
+      import ReactDOM from 'react-dom/client';
+      import { motion, AnimatePresence } from 'framer-motion';
+      import { 
+        Anchor, 
+        Compass, 
+        Zap, 
+        Wind, 
+        ShipWheel, 
+        ArrowRight, 
+        CheckCircle2, 
+        RefreshCw, 
+        Download, 
+        Loader2 
+      } from 'lucide-react';
+      import html2canvas from 'html2canvas';
+      import { jsPDF } from 'jspdf';
+
+      // --- CONSTANTS & TYPES ---
+      
+      // Use const object instead of enum to avoid ReferenceError in Babel Standalone
+      const ProfileType = {
+        INTUITIVO: 'INTUITIVO',
+        REFLEXIVO: 'REFLEXIVO',
+        RESOLUTIVO: 'RESOLUTIVO',
+        RESILIENTE: 'RESILIENTE',
+      };
+
+      const PROFILES = {
+        [ProfileType.INTUITIVO]: {
+          id: ProfileType.INTUITIVO,
+          name: "Navegante Intuitivo",
+          icon: Wind,
+          color: "bg-teal-500",
+          description: "Confías en tu sensibilidad y tiendes a actuar desde la empatía, aunque a veces te cuesta poner límites. Tu brújula emocional te lleva a conectar con los demás.",
+          advice: "Este curso te ayudará a equilibrar esa empatía con autocuidado.",
+        },
+        [ProfileType.REFLEXIVO]: {
+          id: ProfileType.REFLEXIVO,
+          name: "Capitán Reflexivo",
+          icon: Anchor,
+          color: "bg-blue-600",
+          description: "Analizas las situaciones con calma antes de reaccionar. Tu fortaleza está en tu capacidad de observación interna.",
+          advice: "El viaje de Navegar Seguro potenciará tu autorregulación y tu liderazgo emocional.",
+        },
+        [ProfileType.RESOLUTIVO]: {
+          id: ProfileType.RESOLUTIVO,
+          name: "Explorador Resolutivo",
+          icon: Compass,
+          color: "bg-indigo-600",
+          description: "Te enfocas en la acción y las soluciones rápidas. Eso te hace práctico, pero a veces te desconectas de lo emocional.",
+          advice: "Este curso es tu oportunidad para integrar razón y emoción de manera más consciente.",
+        },
+        [ProfileType.RESILIENTE]: {
+          id: ProfileType.RESILIENTE,
+          name: "Viajero Resiliente",
+          icon: Zap,
+          color: "bg-orange-500",
+          description: "Sueles continuar pese a la dificultad, mostrando perseverancia. Sin embargo, podrías beneficiarte de espacios para sentir y compartir.",
+          advice: "Esta travesía te ayudará a legitimar tus emociones como parte del viaje.",
+        },
+      };
+
+      const QUESTIONS = [
+        {
+          id: 1,
+          text: "Cuando enfrentas una jornada difícil en el aula, ¿qué haces al final del día?",
+          options: [
+            { id: "A", text: "Reprimo mis emociones y sigo como si nada.", targetProfile: ProfileType.RESILIENTE },
+            { id: "B", text: "Hablo con alguien cercano para desahogarme.", targetProfile: ProfileType.INTUITIVO },
+            { id: "C", text: "Me tomo un momento a solas para reflexionar o respirar.", targetProfile: ProfileType.REFLEXIVO },
+            { id: "D", text: "Busco una solución rápida para que no vuelva a pasar.", targetProfile: ProfileType.RESOLUTIVO },
+          ],
+        },
+        {
+          id: 2,
+          text: "Un estudiante muestra una actitud desafiante, ¿qué haces primero?",
+          options: [
+            { id: "A", text: "Respiro profundo y trato de entender qué hay detrás de su conducta.", targetProfile: ProfileType.INTUITIVO },
+            { id: "B", text: "Le llamo la atención de inmediato para poner límites.", targetProfile: ProfileType.RESOLUTIVO },
+            { id: "C", text: "Siento frustración, pero intento mantener la calma.", targetProfile: ProfileType.REFLEXIVO },
+            { id: "D", text: "Me cuestiono si hice algo que provocó esa reacción.", targetProfile: ProfileType.RESILIENTE },
+          ],
+        },
+        {
+          id: 3,
+          text: "Cuando sientes estrés, ¿qué frase te representa más?",
+          options: [
+            { id: "A", text: "“Solo tengo que aguantar un poco más”.", targetProfile: ProfileType.RESILIENTE },
+            { id: "B", text: "“Necesito un momento para recargar”.", targetProfile: ProfileType.REFLEXIVO },
+            { id: "C", text: "“Puedo con esto, ya he pasado por peores”.", targetProfile: ProfileType.RESOLUTIVO },
+            { id: "D", text: "“Voy a priorizar lo urgente y delegar lo demás”.", targetProfile: ProfileType.INTUITIVO },
+          ],
+        },
+        {
+          id: 4,
+          text: "¿Qué tan fácil te resulta pedir ayuda cuando lo necesitas?",
+          options: [
+            { id: "A", text: "Difícil, prefiero resolverlo solo/a.", targetProfile: ProfileType.RESOLUTIVO },
+            { id: "B", text: "Lo hago, aunque a veces me siento vulnerable.", targetProfile: ProfileType.RESILIENTE },
+            { id: "C", text: "Muy fácil, soy de redes de apoyo.", targetProfile: ProfileType.INTUITIVO },
+            { id: "D", text: "Depende del tipo de problema.", targetProfile: ProfileType.REFLEXIVO },
+          ],
+        },
+        {
+          id: 5,
+          text: "¿Qué haces cuando cometes un error en clase?",
+          options: [
+            { id: "A", text: "Me lo guardo y sigo como si nada.", targetProfile: ProfileType.RESILIENTE },
+            { id: "B", text: "Reflexiono y, si es necesario, lo reconozco ante el grupo.", targetProfile: ProfileType.INTUITIVO },
+            { id: "C", text: "Me siento mal por un rato, pero trato de aprender.", targetProfile: ProfileType.REFLEXIVO },
+            { id: "D", text: "Me frustro, pero intento corregirlo rápidamente.", targetProfile: ProfileType.RESOLUTIVO },
+          ],
+        },
+      ];
+
+      // --- COMPONENTS ---
+
+      // Button Component
+      const Button = ({ 
+        children, 
+        variant = 'primary', 
+        fullWidth = false, 
+        className = '', 
+        ...props 
+      }) => {
+        const baseStyles = "px-8 py-4 rounded-xl font-bold tracking-wide transition-all duration-200 flex items-center justify-center gap-2 transform active:scale-95 shadow-md";
+        
+        const variants = {
+          primary: "bg-brand-green hover:bg-brand-green-dark text-white shadow-brand-green/30",
+          secondary: "bg-white hover:bg-white/90 text-brand-purple border-2 border-brand-purple/20",
+          outline: "bg-transparent border-2 border-white text-white hover:bg-white/10",
+        };
+
+        return (
+          <button 
+            className={`${baseStyles} ${variants[variant]} ${fullWidth ? 'w-full' : ''} ${className}`}
+            {...props}
+          >
+            {children}
+          </button>
+        );
+      };
+
+      // Intro Component
+      const Intro = ({ onStart }) => {
+        return (
+          <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-brand-bg relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-30 pointer-events-none">
+              <div className="absolute top-10 left-10 w-80 h-80 bg-brand-purple/20 rounded-full blur-3xl mix-blend-multiply animate-blob"></div>
+              <div className="absolute bottom-10 right-10 w-80 h-80 bg-brand-green/20 rounded-full blur-3xl mix-blend-multiply animate-blob animation-delay-2000"></div>
+            </div>
+
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="z-10 max-w-2xl mx-auto"
+            >
+              <div className="mb-10 flex justify-center">
+                <div className="bg-white p-6 rounded-full shadow-2xl shadow-brand-purple/10">
+                  <ShipWheel className="w-20 h-20 text-brand-purple animate-spin-slow" />
+                </div>
+              </div>
+              
+              <h1 className="text-4xl md:text-5xl font-extrabold text-brand-purple mb-8 tracking-tight">
+                ¿Qué tipo de navegante eres?
+              </h1>
+              
+              <p className="text-lg md:text-xl text-slate-600 mb-10 leading-relaxed font-medium">
+                Navegar el mar socioemocional requiere conocer tu propia brújula. 
+                No hay respuestas correctas o incorrectas — solo pistas sobre tu estilo de liderazgo en el aula.
+              </p>
+
+              <div className="bg-white/50 backdrop-blur-md p-8 rounded-3xl border border-white/60 mb-12 shadow-sm">
+                <p className="text-brand-purple font-semibold text-lg">
+                  Descubre si eres un Capitán Reflexivo, un Navegante Intuitivo, un Explorador Resolutivo o un Viajero Resiliente.
+                </p>
+              </div>
+
+              <Button onClick={onStart} className="text-lg px-12 py-5 shadow-xl shadow-brand-green/20">
+                ¡ZARPAR AHORA!
+              </Button>
+            </motion.div>
+            
+            <style>{`
+              @keyframes blob {
+                0% { transform: translate(0px, 0px) scale(1); }
+                33% { transform: translate(30px, -50px) scale(1.1); }
+                66% { transform: translate(-20px, 20px) scale(0.9); }
+                100% { transform: translate(0px, 0px) scale(1); }
+              }
+              .animate-blob {
+                animation: blob 7s infinite;
+              }
+              .animation-delay-2000 {
+                animation-delay: 2s;
+              }
+              .animate-spin-slow {
+                animation: spin 10s linear infinite;
+              }
+            `}</style>
+          </div>
+        );
+      };
+
+      // Quiz Component
+      const Quiz = ({ onComplete }) => {
+        const [currentIndex, setCurrentIndex] = useState(0);
+        const [answers, setAnswers] = useState([]);
+        const [selectedOption, setSelectedOption] = useState(null);
+
+        const currentQuestion = QUESTIONS[currentIndex];
+        const progress = ((currentIndex + 1) / QUESTIONS.length) * 100;
+
+        const handleSelect = (optionId) => {
+          setSelectedOption(optionId);
+        };
+
+        const handleNext = () => {
+          if (!selectedOption) return;
+
+          const selectedProfile = currentQuestion.options.find(opt => opt.id === selectedOption)?.targetProfile;
+          
+          if (selectedProfile) {
+            const newAnswers = [...answers, selectedProfile];
+            setAnswers(newAnswers);
+
+            if (currentIndex < QUESTIONS.length - 1) {
+              setSelectedOption(null);
+              setCurrentIndex(prev => prev + 1);
+            } else {
+              onComplete(newAnswers);
+            }
+          }
+        };
+
+        return (
+          <div className="min-h-screen bg-brand-bg flex flex-col items-center pt-12 pb-6 px-4 md:px-6">
+            <div className="w-full max-w-3xl">
+              <div className="mb-8">
+                <div className="flex justify-between text-sm font-bold text-brand-purple mb-2 uppercase tracking-wider">
+                  <span>Pregunta {currentIndex + 1} de {QUESTIONS.length}</span>
+                  <span>{Math.round(progress)}% Completado</span>
+                </div>
+                <div className="h-4 bg-white rounded-full overflow-hidden border border-brand-purple/10">
+                  <motion.div 
+                    className="h-full bg-brand-green rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ duration: 0.5 }}
+                  />
+                </div>
+              </div>
+
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentIndex}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="bg-white rounded-[2rem] shadow-xl shadow-brand-purple/5 border border-white p-8 md:p-12"
+                >
+                  <h2 className="text-2xl md:text-3xl font-bold text-brand-purple mb-10 leading-tight">
+                    {currentQuestion.text}
+                  </h2>
+
+                  <div className="space-y-4">
+                    {currentQuestion.options.map((option) => (
+                      <button
+                        key={option.id}
+                        onClick={() => handleSelect(option.id)}
+                        className={`w-full text-left p-6 rounded-2xl border-2 transition-all duration-200 flex items-start group ${
+                          selectedOption === option.id
+                            ? 'border-brand-purple bg-brand-purple/5 ring-1 ring-brand-purple'
+                            : 'border-slate-100 hover:border-brand-green hover:bg-white'
+                        }`}
+                      >
+                        <div className={`mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 mr-5 transition-colors ${
+                          selectedOption === option.id
+                            ? 'border-brand-purple bg-brand-purple text-white'
+                            : 'border-slate-300 group-hover:border-brand-green'
+                        }`}>
+                          {selectedOption === option.id && <CheckCircle2 size={14} />}
+                        </div>
+                        <span className={`text-lg font-medium ${selectedOption === option.id ? 'text-brand-purple' : 'text-slate-600'}`}>
+                          {option.text}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-12 flex justify-end">
+                    <Button 
+                      onClick={handleNext} 
+                      disabled={!selectedOption}
+                      className={!selectedOption ? 'opacity-50 cursor-not-allowed' : ''}
+                    >
+                      {currentIndex === QUESTIONS.length - 1 ? 'VER RESULTADO' : 'SIGUIENTE'}
+                      <ArrowRight size={20} />
+                    </Button>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
+        );
+      };
+
+      // Results Component
+      const Results = ({ answers, onRestart }) => {
+        const [manualSelection, setManualSelection] = useState(null);
+        const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+        const resultRef = useRef(null);
+
+        const calculateResult = () => {
+          const scores = {};
+          answers.forEach((ans) => {
+            scores[ans] = (scores[ans] || 0) + 1;
+          });
+
+          let maxScore = 0;
+          Object.values(scores).forEach(score => {
+            if (score > maxScore) maxScore = score;
+          });
+
+          const winningKeys = Object.keys(scores).filter(key => scores[key] === maxScore);
+          return winningKeys.map(key => PROFILES[key]);
+        };
+
+        const winners = calculateResult();
+        const isTie = winners.length > 1;
+        const finalProfile = !isTie ? winners[0] : manualSelection;
+
+        const handleDownloadPDF = async () => {
+          if (!resultRef.current || !finalProfile) return;
+
+          setIsGeneratingPdf(true);
+
+          try {
+            const canvas = await html2canvas(resultRef.current, {
+              scale: 2,
+              useCORS: true,
+              backgroundColor: '#efecdd',
+              logging: false,
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            
+            const pdf = new jsPDF({
+              orientation: 'portrait',
+              unit: 'mm',
+              format: 'a4',
+            });
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            
+            const imgProps = pdf.getImageProperties(imgData);
+            const imgWidth = pdfWidth - 20; 
+            const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+
+            let yPos = 20; 
+
+            if (imgHeight > pdfHeight - 40) {
+               const scaleFactor = (pdfHeight - 40) / imgHeight;
+               const finalWidth = imgWidth * scaleFactor;
+               const finalHeight = imgHeight * scaleFactor;
+               const xPos = (pdfWidth - finalWidth) / 2;
+               pdf.addImage(imgData, 'PNG', xPos, yPos, finalWidth, finalHeight);
+            } else {
+               pdf.addImage(imgData, 'PNG', 10, yPos, imgWidth, imgHeight);
+            }
+
+            pdf.save(`Perfil-Navegante-${finalProfile.name.replace(/\s+/g, '-')}.pdf`);
+          } catch (error) {
+            console.error('Error generating PDF:', error);
+            window.print();
+          } finally {
+            setIsGeneratingPdf(false);
+          }
+        };
+
+        if (isTie && !manualSelection) {
+          return (
+            <div className="min-h-screen bg-brand-bg py-12 px-4 md:px-6 flex items-center justify-center">
+              <div className="max-w-5xl mx-auto w-full">
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center mb-12"
+                >
+                  <h2 className="text-3xl md:text-4xl font-extrabold text-brand-purple mb-6 leading-tight">
+                    ¡Vaya! Tus respuestas indican que tienes habilidades mixtas muy interesantes.
+                  </h2>
+                  <p className="text-xl text-slate-600 font-medium">
+                    Estás navegando entre dos corrientes:
+                  </p>
+                </motion.div>
+
+                <div className="grid md:grid-cols-2 gap-8 mb-12">
+                  {winners.map((profile, index) => {
+                    const Icon = profile.icon;
+                    return (
+                      <motion.button
+                        key={profile.id}
+                        initial={{ opacity: 0, x: index === 0 ? -20 : 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 }}
+                        whileHover={{ scale: 1.02, translateY: -5 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setManualSelection(profile)}
+                        className="bg-white p-8 rounded-[2rem] shadow-xl shadow-brand-purple/5 border-2 border-transparent hover:border-brand-purple text-left flex flex-col items-start transition-all duration-300 group h-full"
+                      >
+                        <div className={`${profile.color} p-5 rounded-2xl text-white mb-6 shadow-md`}>
+                          <Icon size={36} />
+                        </div>
+                        <h3 className="text-2xl font-bold text-brand-purple mb-4 group-hover:text-brand-green transition-colors">
+                          Opción {index + 1}: {profile.name}
+                        </h3>
+                        <p className="text-slate-600 leading-relaxed mb-8 flex-grow">
+                          {profile.description}
+                        </p>
+                        <div className="w-full py-4 bg-brand-bg rounded-xl flex items-center justify-center text-brand-purple font-bold uppercase tracking-wider group-hover:bg-brand-purple group-hover:text-white transition-colors">
+                          Elegir este perfil <CheckCircle2 className="ml-2 w-5 h-5" />
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="text-center max-w-2xl mx-auto bg-white/60 backdrop-blur-sm p-6 rounded-2xl border border-white"
+                >
+                  <p className="text-lg font-bold text-brand-purple">
+                    Para este viaje, ¿cuál de estas dos descripciones sientes que refleja mejor tu momento actual como educador?
+                  </p>
+                </motion.div>
+              </div>
+            </div>
+          );
+        }
+
+        if (!finalProfile) return null;
+
+        const Icon = finalProfile.icon;
+
+        return (
+          <div className="min-h-screen bg-brand-bg py-12 px-4 md:px-6">
+            <div className="max-w-4xl mx-auto">
+              <div ref={resultRef} className="bg-brand-bg p-4 rounded-3xl">
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center mb-12"
+                >
+                  <h2 className="text-3xl md:text-5xl font-extrabold text-brand-purple mb-6">
+                    ¡Tu perfil ha sido revelado!
+                  </h2>
+                  <p className="text-xl text-slate-600 max-w-2xl mx-auto font-medium">
+                    Aquí está tu estilo de navegación predominante. Úsalo como guía para tu bienestar emocional.
+                  </p>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl shadow-brand-purple/10 border-4 border-white flex flex-col md:flex-row"
+                >
+                  <div className={`${finalProfile.color} p-12 md:w-2/5 flex flex-col justify-center items-center text-center relative overflow-hidden`}>
+                    <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+                    
+                    <motion.div 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
+                      className="bg-white/25 p-10 rounded-full backdrop-blur-md mb-8 shadow-inner relative z-10"
+                    >
+                      <Icon className="w-24 h-24 text-white" />
+                    </motion.div>
+                    <h3 className="text-3xl font-extrabold text-white relative z-10 leading-tight">{finalProfile.name}</h3>
+                  </div>
+
+                  <div className="p-8 md:p-14 md:w-3/5 flex flex-col justify-center bg-white">
+                    <h4 className="text-sm font-extrabold text-slate-400 uppercase tracking-widest mb-6">Análisis del Capitán</h4>
+                    <p className="text-xl text-brand-purple leading-relaxed mb-10 font-medium">
+                      {finalProfile.description}
+                    </p>
+                    
+                    <div className="bg-brand-bg p-8 rounded-3xl border-l-8 border-brand-green">
+                      <p className="text-sm font-bold text-brand-green uppercase tracking-wider mb-3">Tu Brújula para este Curso:</p>
+                      <p className="text-xl text-brand-purple italic font-semibold">"{finalProfile.advice}"</p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="mt-8 flex flex-col md:flex-row justify-center gap-6"
+              >
+                <Button onClick={onRestart} variant="secondary">
+                  <RefreshCw size={20} />
+                  REINICIAR
+                </Button>
+                <Button onClick={handleDownloadPDF} variant="primary" disabled={isGeneratingPdf}>
+                  {isGeneratingPdf ? <Loader2 className="animate-spin" size={20} /> : <Download size={20} />}
+                  {isGeneratingPdf ? 'GENERANDO...' : 'GUARDAR PDF'}
+                </Button>
+              </motion.div>
+            </div>
+          </div>
+        );
+      };
+
+      // --- APP ---
+
+      function App() {
+        const [gameState, setGameState] = useState('INTRO');
+        const [userAnswers, setUserAnswers] = useState([]);
+
+        const handleStart = () => {
+          setGameState('QUIZ');
+          setUserAnswers([]);
+        };
+
+        const handleComplete = (answers) => {
+          setUserAnswers(answers);
+          setGameState('RESULT');
+        };
+
+        const handleRestart = () => {
+          setGameState('INTRO');
+          setUserAnswers([]);
+        };
+
+        return (
+          <div className="font-sans text-slate-900">
+            {gameState === 'INTRO' && (
+              <Intro onStart={handleStart} />
+            )}
+            
+            {gameState === 'QUIZ' && (
+              <Quiz onComplete={handleComplete} />
+            )}
+            
+            {gameState === 'RESULT' && (
+              <Results answers={userAnswers} onRestart={handleRestart} />
+            )}
+          </div>
+        );
+      }
+
+      // --- ROOT RENDER ---
+      const rootElement = document.getElementById('root');
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      );
+    </script>
+  </body>
+</html>
